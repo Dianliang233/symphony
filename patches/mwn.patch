@@ -1,0 +1,13 @@
+diff --git a/build/bot.d.ts b/build/bot.d.ts
+index b09e08de3a9e48de31912a286b427b408fbdaf1d..acf91361db219c223e2b49b9dd1893eecfda5a89 100644
+--- a/build/bot.d.ts
++++ b/build/bot.d.ts
+@@ -89,7 +89,7 @@ export interface MwnOptions {
+ export declare type EditTransform = (rev: {
+     content: string;
+     timestamp: string;
+-}) => string | ApiEditPageParams | Promise<string | ApiEditPageParams>;
++}) => string | ApiEditPageParams | undefined | Promise<string | ApiEditPageParams | undefined>;
+ export declare type EditConfig = {
+     /** Max number of retries on edit conflicts, default: 2 */
+     conflictRetries?: number;
