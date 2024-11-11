@@ -2,6 +2,7 @@ import { Mwn } from 'mwn'
 import { central, getLocalBot } from '../bots.js'
 import config from '../config.js'
 import chalk from 'chalk'
+import ora from 'ora'
 
 export default async function sync(options: { wiki?: string[]; pages?: string[] }) {
   if (!options.wiki || options.wiki.length === 0) options.wiki = Object.keys(config.wiki)
@@ -28,10 +29,15 @@ export default async function sync(options: { wiki?: string[]; pages?: string[] 
     const content = centralPage.revisions[0].content
     if (content === undefined) throw new Error(`Page ${pageName} has no content`)
 
-    process.stdout.write(`Syncing page ${chalk.blue(pageName)} `)
+    const spinner = ora(`Syncing page ${chalk.blue(pageName)} `).start()
 
-    for (const wiki of options.wiki) {
+    const finishedWikis: string[] = []
+
+    const concurrency = parseInt(process.env.MAX_CONCURRENCY ?? '1')
+
+    const promises = options.wiki.map((wiki) => async () => {
       const localBot = await getLocalBot(wiki)
+      if (!centralPage.revisions) throw new Error(`Page ${pageName} not found on central wiki`)
 
       try {
         await localBot.edit(pageName, (rev) => {
@@ -53,8 +59,21 @@ export default async function sync(options: { wiki?: string[]; pages?: string[] 
         }
       }
 
-      process.stdout.write(chalk.green(wiki) + ' ')
-    }
-    process.stdout.write('\n')
+      finishedWikis.push(wiki)
+      spinner.suffixText = chalk.green(finishedWikis.sort().join(' '))
+    })
+
+    const chunks = Array.from({ length: Math.ceil(promises.length / concurrency) }, (_, i) =>
+      promises.slice(i * concurrency, i * concurrency + concurrency),
+    )
+    await chunks.reduce(
+      async (prev, chunk) => {
+        await prev
+        await Promise.all(chunk.map((fn) => fn()))
+      },
+      Promise.resolve().then(() => {}),
+    )
+
+    spinner.succeed()
   }
 }
